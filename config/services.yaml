@@ -33,3 +33,13 @@ services:
     App\EventListener\ExceptionListener:
         tags:
             - { name: kernel.event_listener, event: kernel.exception }
+
+    App\Service\PaymentService:
+        public: true
+        autowire: true
+
+    Gesdinet\JWTRefreshTokenBundle\Service\RefreshToken:
+        alias: "gesdinet.jwtrefreshtoken"
+
+    Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface:
+        alias: "gesdinet.jwtrefreshtoken.refresh_token_manager"

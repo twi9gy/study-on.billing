@@ -3,6 +3,7 @@
 namespace App\Tests;
 
 use App\DataFixtures\UserFixtures;
+use App\Service\PaymentService;
 use JMS\Serializer\SerializerInterface;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -20,7 +21,7 @@ class AuthControllerTest extends AbstractTest
 
     public function getFixtures(): array
     {
-        return [new UserFixtures(self::$kernel->getContainer()->get('security.password_encoder'))];
+        return [new UserFixtures(self::$kernel->getContainer()->get('security.password_encoder'),self::$kernel->getContainer()->get(PaymentService::class))];
     }
 
     protected function setUp(): void
@@ -60,6 +61,7 @@ class AuthControllerTest extends AbstractTest
         // Проверка содержимого ответа (В ответе должен быть представлен token)
         $response = json_decode($client->getResponse()->getContent(), true);
         self::assertNotEmpty($response['token']);
+        self::assertNotEmpty($response['refresh_token']);
     }
 
     // Тесты для неуспешно входа в систему с невырным паролем
@@ -161,6 +163,7 @@ class AuthControllerTest extends AbstractTest
         // Проверка содержимого ответа (В ответе должен быть представлен token)
         $response = json_decode($client->getResponse()->getContent(), true);
         self::assertNotEmpty($response['token']);
+        self::assertNotEmpty($response['refresh_token']);
     }
 
     // Тесты для регистрации уже существующего пользователя
@@ -229,5 +232,63 @@ class AuthControllerTest extends AbstractTest
         // Проверка содержимого ответа (Информация об ошибке в ответе должна быть массивом с двумя подмассивами)
         $response = json_decode($client->getResponse()->getContent(), true);
         self::assertCount(2, $response['message']);
+    }
+
+    // Тест обновления токека
+    public function testRefreshToken(): void
+    {
+        // Имитируем ввод данных пользователем
+        $user = [
+            'username' => 'test@gmail.com',
+            'password' => 'general_user',
+        ];
+
+        // Создание запроса для авторизации пользователя
+        $client = self::getClient();
+        $client->request(
+            'POST',
+            $this->basePath . '/auth',
+            [],
+            [],
+            [ 'CONTENT_TYPE' => 'application/json' ],
+            $this->serializer->serialize($user, 'json')
+        );
+
+        // Проверка статуса ответа
+        $this->assertResponseCode(Response::HTTP_OK, $client->getResponse());
+
+        // Проверка заголовка ответа (ответ в виде json?)
+        self::assertTrue($client->getResponse()->headers->contains(
+            'Content-Type', 'application/json'
+        ));
+
+        $response = json_decode($client->getResponse()->getContent(), true);
+
+        // Создание запроса для обновления токена доступа
+        $client = self::getClient();
+        $client->request(
+            'POST',
+            $this->basePath . '/token/refresh',
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'Authorization' => 'Bearer ' . $response['token']
+            ],
+            $this->serializer->serialize(['refresh_token' => $response['refresh_token']], 'json')
+        );
+
+        // Проверка статуса ответа
+        $this->assertResponseCode(Response::HTTP_OK, $client->getResponse());
+
+        // Проверка заголовка ответа (ответ в виде json?)
+        self::assertTrue($client->getResponse()->headers->contains(
+            'Content-Type', 'application/json'
+        ));
+
+        // Проверка содержимого ответа (В ответе должен быть представлен token)
+        $response = json_decode($client->getResponse()->getContent(), true);
+        self::assertNotEmpty($response['token']);
+        self::assertNotEmpty($response['refresh_token']);
     }
 }

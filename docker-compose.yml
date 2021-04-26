@@ -5,6 +5,7 @@ services:
   nginx:
     image: nginx:alpine
     working_dir: /app
+    container_name: billing.study-on.local
     volumes:
       - ${PWD}:/app
       - ./docker/hosts/app.conf:/etc/nginx/conf.d/default.conf

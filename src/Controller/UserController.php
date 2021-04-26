@@ -3,6 +3,8 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Repository\TransactionRepository;
+use App\Repository\UserRepository;
 use JMS\Serializer\SerializerInterface;
 use OpenApi\Annotations as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -93,6 +95,100 @@ class UserController extends AbstractController
         }
 
         $response->setContent($serializer->serialize($data, 'json'));
+        $response->headers->add(['Content-Type' => 'application/json']);
+        return $response;
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/v1/users/courses",
+     *     tags={"user"},
+     *     summary="Get all user courses",
+     *     description="Get all user courses",
+     *     operationId="user.courses",
+     *     @OA\Response(
+     *          response="200",
+     *          description="successful operation",
+     *          @OA\JsonContent(
+     *              type="array",
+     *              @OA\Items(
+     *                  @OA\Property(
+     *                      property="code",
+     *                      type="string",
+     *                      example="landshaftnoe-proektirovanie"
+     *                  ),
+     *                  @OA\Property(
+     *                      property="type",
+     *                      type="string",
+     *                      example="rent"
+     *                  ),
+     *                  @OA\Property(
+     *                      property="price",
+     *                      type="number",
+     *                      format="float",
+     *                      example="99.90"
+     *                  ),
+     *              )
+     *          )
+     *     ),
+     *     @OA\Response(
+     *          response="401",
+     *          description="Unauthorized",
+     *          @OA\JsonContent(
+     *              @OA\Property(
+     *                  property="code",
+     *                  type="string",
+     *                  example="401"
+     *              ),
+     *              @OA\Property(
+     *                  property="message",
+     *                  type="string",
+     *                  example="JWT Token not found"
+     *              )
+     *          )
+     *     )
+     * )
+     *
+     * @Route("/courses", name="user_courses", methods={"GET"})
+     * @param UserRepository $userRepository
+     * @param SerializerInterface $serializer
+     * @param TransactionRepository $transactionRepository
+     * @return Response
+     */
+    public function userCourses(
+        UserRepository $userRepository,
+        SerializerInterface $serializer,
+        TransactionRepository $transactionRepository
+    ): Response {
+        // Получаем пользователя
+        $userJwt = $this->getUser();
+        $user = $userRepository->findOneBy(['email' => $userJwt->getUsername()]);
+        $transactions = $transactionRepository->findBy(['userBilling' => $user, 'typeOperation' => 1]);
+
+        $courses = [];
+        foreach ($transactions as $transaction) {
+            $course = $transaction->getCourse();
+            if ($course) {
+                if ($course->getTypeFormatString() === 'rent' && $transaction->getPeriodValidity() > new \DateTime()) {
+                    $courses[] = [
+                        'code' => $course->getCode(),
+                        'cost' => $course->getCost(),
+                        'type' => $course->getTypeFormatString(),
+                        'expires_at' => $transaction->getPeriodValidity()
+                    ];
+                } elseif($course->getTypeFormatString() !== 'rent') {
+                    $courses[] = [
+                        'code' => $course->getCode(),
+                        'cost' => $course->getCost(),
+                        'type' => $course->getTypeFormatString()
+                    ];
+                }
+            }
+        }
+
+        $response = new Response();
+        $response->setContent($serializer->serialize($courses, 'json'));
+        $response->setStatusCode(Response::HTTP_OK);
         $response->headers->add(['Content-Type' => 'application/json']);
         return $response;
     }
