@@ -33,19 +33,19 @@ class TransactionController extends AbstractController
      *          )
      *     ),
      *     @OA\Parameter(
-     *          name="course_code",
+     *          name="code",
      *          in="query",
      *          @OA\Schema(
      *              type="string",
-     *              example="landshaftnoe-proektirovanie"
+     *              example="Business-Analyst"
      *          )
      *     ),
      *     @OA\Parameter(
      *          name="skip_expired",
      *          in="query",
      *          @OA\Schema(
-     *              type="string",
-     *              example="2019-05-20T13:46:07+00:00"
+     *              type="bool",
+     *              example="1"
      *          )
      *     ),
      *     @OA\Response(
@@ -117,103 +117,47 @@ class TransactionController extends AbstractController
         $userJwt = $this->getUser();
         $user = $userRepository->findOneBy(['email' => $userJwt->getUsername()]);
 
-        // Получаем все транзакции пользователя
-        $transactions = $transactionRepository->findBy(['userBilling' => $user->getId()]);
+        $type = null;
+        $code = null;
+        $skip_expired = null;
 
-        // Если установлен тип, то фильтруем транзакции по типу
-        if ($request->get('type') !== null) {
+        // Если установлен тип
+        if ($request->get('type')) {
             // Получаем тип
             $type = $request->get('type');
-            // Фильтруем транзации по типу
-            $transactions = $this->filterByType($transactions, $type);
         }
 
-        // Если установлен код курса, то фильтруем транзакции по коду курса
-        if ($request->get('course_code') !== null) {
+        // Если установлен код курса
+        if ($request->get('code')) {
             // Получаем код курса
-            $course_code = $request->get('course_code');
-            // Фильтруем транзации по код курса
-            $transactions = $this->filterByCodeCourse($transactions, $course_code);
+            $code = $request->get('code');
         }
 
-        // Если установлен срок окончания аренды, то фильтруем транзакции по сроку окончания аренды
-        if ($request->get('skip_expired') !== null) {
+        // Если установлен срок окончания аренды
+        if ($request->get('skip_expired')) {
             // Получаем срок окончания аренды
             $skip_expired = $request->get('skip_expired');
-            // Фильтруем транзации по сроку окончания аренды
-            $transactions = $this->filterBySkipExpired($transactions, new \DateTime($skip_expired));
         }
 
-        // Формируем ответ сервера
-        $data = [];
-        foreach ($transactions as $transaction) {
-            if ($transaction->getCourse()) {
-                if ($transaction->getPeriodValidity()) {
-                    $record = [
-                        'id' => $transaction->getId(),
-                        'created_at' => $transaction->getCreatedAt(),
-                        'skip_expired' => $transaction->getPeriodValidity(),
-                        'type' => $transaction->getTypeOperationFormatString(),
-                        'course_code' => $transaction->getCourse()->getCode(),
-                        'amount' => $transaction->getValue()
-                    ];
-                } else {
-                    $record = [
-                        'id' => $transaction->getId(),
-                        'created_at' => $transaction->getCreatedAt(),
-                        'type' => $transaction->getTypeOperationFormatString(),
-                        'course_code' => $transaction->getCourse()->getCode(),
-                        'amount' => $transaction->getValue()
-                    ];
-                }
+        $transactions = $transactionRepository->findByFilter(
+            $type,
+            $code,
+            $skip_expired,
+            $user
+        );
+
+        foreach ($transactions as $i => $transaction) {
+            if ($transaction['type'] === 1) {
+                $transactions[$i]['type'] = 'payment';
             } else {
-                $record = [
-                    'id' => $transaction->getId(),
-                    'created_at' => $transaction->getCreatedAt(),
-                    'type' => $transaction->getTypeOperationFormatString(),
-                    'amount' => $transaction->getValue()
-                ];
+                $transactions[$i]['type'] = 'deposit';
             }
-            $data[] = $record;
         }
 
         $response = new Response();
         $response->setStatusCode(Response::HTTP_OK);
-        $response->setContent($serializer->serialize($data, 'json'));
+        $response->setContent($serializer->serialize($transactions, 'json'));
         $response->headers->add(['Content-Type' => 'application/json']);
         return $response;
-    }
-
-    private function filterByType(array $transactions, string $type): array
-    {
-        $result = [];
-        foreach ($transactions as $transaction) {
-            if ($transaction->getTypeOperationFormatString() === $type) {
-                $result[] = $transaction;
-            }
-        }
-        return $result;
-    }
-
-    private function filterByCodeCourse(array $transactions, string $course_code): array
-    {
-        $result = [];
-        foreach ($transactions as $transaction) {
-            if ($transaction->getCourse() && $transaction->getCourse()->getCode() === $course_code) {
-                $result[] = $transaction;
-            }
-        }
-        return $result;
-    }
-
-    private function filterBySkipExpired(array $transactions, \DateTime $skip_expired): array
-    {
-        $result = [];
-        foreach ($transactions as $transaction) {
-            if ($transaction->getPeriodValidity() && $transaction->getPeriodValidity() === $skip_expired) {
-                $result[] = $transaction;
-            }
-        }
-        return $result;
     }
 }

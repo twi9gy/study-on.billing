@@ -75,30 +75,13 @@ class CourseController extends AbstractController
         $courseRepository = $entityManager->getRepository(Course::class);
 
         // Получаем все курсы
-        $courses = $courseRepository->findAll();
-
-        $data = [];
-        foreach ($courses as $course) {
-            if ($course->getCost()) {
-                $record = [
-                    'code' => $course->getCode(),
-                    'type' => $course->getTypeFormatString(),
-                    'price' => $course->getCost()
-                ];
-            } else {
-                $record = [
-                    'code' => $course->getCode(),
-                    'type' => $course->getTypeFormatString()
-                ];
-            }
-            $data[] = $record;
-        }
+        $courses = $courseRepository->findAllCourses();
 
         $response = new Response();
         // Устанавливаем статус ответа
         $response->setStatusCode(Response::HTTP_OK);
         // Устанавливаем содержание ответа
-        $response->setContent($serializer->serialize($data, 'json'));
+        $response->setContent($serializer->serialize($courses, 'json'));
         // Устанавливаем заголовок
         $response->headers->add(['Content-Type' => 'application/json']);
         return $response;
@@ -165,18 +148,11 @@ class CourseController extends AbstractController
         // Поиск курса
         $course = $courseRepository->findOneBy(['code' => $code]);
 
-        if ($course->getCost()) {
-            $courseData = [
-                'code' => $course->getCode(),
-                'type' => $course->getTypeFormatString(),
-                'price' => $course->getCost()
-            ];
-        } else {
-            $courseData = [
-                'code' => $course->getCode(),
-                'type' => $course->getTypeFormatString()
-            ];
-        }
+        $courseData = [
+            'code' => $course->getCode(),
+            'type' => $course->getTypeFormatString(),
+            'price' => 'free' !== $course->getTypeFormatString() ? $course->getCost() : null
+        ];
 
         $response = new Response();
         // Устанавливаем статус ответа
@@ -259,19 +235,13 @@ class CourseController extends AbstractController
 
         // Списываем деньги за курс
         $result = $paymentService->payment($user, $course, $course->getCost());
-        if ($result) {
-            // Формируем ответ
-            $data = [
-                'success' => true,
-                'course_type' => $course->getTypeFormatString(),
-                'expires_at' => $result,
-            ];
-        } else {
-            $data = [
-                'success' => true,
-                'course_type' => $course->getTypeFormatString(),
-            ];
-        }
+
+        // Формируем ответ
+        $data = [
+            'success' => true,
+            'course_type' => $course->getTypeFormatString(),
+            'expires_at' => 'rent' === $course->getTypeFormatString() ? $result : null,
+        ];
         // Устанавливаем статус ответа
         $response->setStatusCode(Response::HTTP_OK);
 
