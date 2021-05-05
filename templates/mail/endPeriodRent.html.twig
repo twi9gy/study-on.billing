@@ -1,0 +1,18 @@
+{% extends 'mail/basePattern.html.twig' %}
+
+{% block title %}
+    <p>Уважаемый клиент! У вас есть курсы, срок аренды которых подходит к концу:</p>
+{% endblock %}
+
+{% block body %}
+    {% for course in courses %}
+        <tr>
+            <td style='font: 18px/24px arial; color: #1a1a1a;'>
+                <p>{{ course.code }} действует до {{ course.periodValidity|date('d.m.Y H:i') }}</p>
+            </td>
+            <td style='font: 18px/24px arial; color: #1a1a1a;'>
+                <p></p>
+            </td>
+        </tr>
+    {% endfor %}
+{% endblock %}

@@ -22,11 +22,9 @@ class CourseRepository extends ServiceEntityRepository
 
     public function findAllCourses(): array
     {
-        $queryBuilder = $this->createQueryBuilder('t')
-            ->select('t.code,
-             t.type,
-             t.cost')
-            ->orderBy('t.id', 'ASC');
+        $queryBuilder = $this->createQueryBuilder('c')
+            ->select('c.code, c.type, c.cost')
+            ->orderBy('c.id', 'ASC');
 
         return $queryBuilder
             ->getQuery()

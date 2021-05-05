@@ -61,6 +61,59 @@ class TransactionRepository extends ServiceEntityRepository
             ->getArrayResult();
     }
 
+    public function findEndRentalPeriod($user)
+    {
+        $date = (new \DateTime())->modify('+1 day')->format('Y-m-d');
+
+        $conn = $this->getEntityManager()->getConnection();
+
+        $sql = '
+            SELECT t.period_validity, 
+                c.code
+            FROM "transaction" t
+            INNER JOIN course c ON c.id = t.course_id
+            WHERE (c.type = 1) AND (t.user_billing_id = :user) 
+            AND (date(t.period_validity) = :dateParam)
+            ';
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam('user', $user);
+        $stmt->bindParam('dateParam', $date);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function findPaidCoursesAtMonth()
+    {
+        // Текущая дата
+        $endDate = (new \DateTime())->format('Y-m-d H:i');
+        // Текущая дата минус 1 месяц
+        $startDate = (new \DateTime())->modify('-1 month')->format('Y-m-d H:i');
+
+        $conn = $this->getEntityManager()->getConnection();
+
+        $sql = '
+            SELECT c.title,
+                c.type,
+                COUNT(t.id) OVER (PARTITION BY c.title) as count_buy,
+                SUM(t.value) OVER (PARTITION BY c.title) as sum_buy
+            FROM "transaction" t
+            INNER JOIN course c ON c.id = t.course_id
+            WHERE t.created_at BETWEEN :startDate AND :endDate
+            ';
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam('startDate', $startDate);
+        $stmt->bindParam('endDate', $endDate);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
     // /**
     //  * @return Transaction[] Returns an array of Transaction objects
     //  */

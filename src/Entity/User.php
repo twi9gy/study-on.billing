@@ -184,10 +184,12 @@ class User implements UserInterface
     public static function fromDto(UserDto $userDto): self
     {
         $user = new self();
+
         $user->setEmail($userDto->email);
         $user->setRoles(["ROLE_USER"]);
         $user->setPassword($userDto->password);
         $user->setBalance(0);
+
         return $user;
     }
 
@@ -211,13 +213,16 @@ class User implements UserInterface
 
     public function removeTransaction(Transaction $transaction): self
     {
-        if ($this->transactions->removeElement($transaction)) {
-            // set the owning side to null (unless already changed)
-            if ($transaction->getUserBilling() === $this) {
-                $transaction->setUserBilling(null);
-            }
+        // set the owning side to null (unless already changed)
+        if ($this->transactions->removeElement($transaction) && $transaction->getUserBilling() === $this) {
+            $transaction->setUserBilling(null);
         }
 
         return $this;
+    }
+
+    public function __toString()
+    {
+        return (string) $this->getId();
     }
 }
